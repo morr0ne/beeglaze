@@ -1,4 +1,5 @@
 import gleam/bool
+import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/int
 import gleam/io
@@ -33,6 +34,13 @@ pub type DecodeError {
   InvalidLength
 }
 
+pub type BencodeValue {
+  BString(String)
+  BInteger(Int)
+  BList(List(BencodeValue))
+  BDict(Dict(String, BencodeValue))
+}
+
 pub fn decode(source: String) -> Nil {
   case string.first(source) {
     Ok(char) -> Nil
@@ -40,7 +48,7 @@ pub fn decode(source: String) -> Nil {
   }
 }
 
-pub fn decode_int(source: String) -> Result(Int, DecodeError) {
+pub fn decode_int(source: String) -> Result(BencodeValue, DecodeError) {
   use <- bool.guard(
     source |> string.starts_with("i") |> bool.negate,
     Error(InvalidFormat),
@@ -72,10 +80,10 @@ pub fn decode_int(source: String) -> Result(Int, DecodeError) {
     |> result.map_error(fn(_) { InvalidFormat }),
   )
 
-  Ok(num)
+  Ok(BInteger(num))
 }
 
-pub fn decode_string(source: String) -> Result(String, DecodeError) {
+pub fn decode_string(source: String) -> Result(BencodeValue, DecodeError) {
   use #(len, rest) <- result.try(
     source
     |> string.split_once(":")
@@ -95,5 +103,5 @@ pub fn decode_string(source: String) -> Result(String, DecodeError) {
   //   string.slice(from: rest, at_index: len, length: string.length(rest) - len),
   // ))
 
-  Ok(string.slice(from: rest, at_index: 0, length: len))
+  Ok(BString(string.slice(from: rest, at_index: 0, length: len)))
 }
