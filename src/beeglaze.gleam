@@ -71,20 +71,49 @@ fn decode_value(
   source: BitArray,
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
   case source {
-    <<"0":utf8, _:bytes>>
-    | <<"1":utf8, _:bytes>>
-    | <<"2":utf8, _:bytes>>
-    | <<"3":utf8, _:bytes>>
-    | <<"4":utf8, _:bytes>>
-    | <<"5":utf8, _:bytes>>
-    | <<"6":utf8, _:bytes>>
-    | <<"7":utf8, _:bytes>>
-    | <<"8":utf8, _:bytes>>
-    | <<"9":utf8, _:bytes>> -> decode_string(source)
-    <<"i-":utf8, rest:bytes>> -> decode_int(rest, True)
-    <<"i":utf8, rest:bytes>> -> decode_int(rest, False)
-    <<"l":utf8, rest:bytes>> -> decode_list(rest)
-    <<"d":utf8, rest:bytes>> -> decode_dict(rest)
+    // --- String parsing ---
+    //
+    // Handle empty string special case
+    <<"0:", rest:bytes>> -> Ok(#(BString(<<>>), rest))
+    // Error out on leading zeros
+    <<"0", _:bytes>> -> Error(InvalidFormat)
+    // If we match any other number then we can assume it's the lenght of a string
+    <<"1", _:bytes>>
+    | <<"2", _:bytes>>
+    | <<"3", _:bytes>>
+    | <<"4", _:bytes>>
+    | <<"5", _:bytes>>
+    | <<"6", _:bytes>>
+    | <<"7", _:bytes>>
+    | <<"8", _:bytes>>
+    | <<"9", _:bytes>> -> decode_string(source)
+
+    // --- Number parsing ---
+    //
+    // We can just match on a 0
+    <<"i0e", rest:bytes>> -> Ok(#(BInt(0), rest))
+    // Empty numbers are not valid
+    <<"ie", _:bytes>> -> Error(InvalidFormat)
+    // Negative zero is not allowed
+    <<"i-0e", _:bytes>> -> Error(InvalidFormat)
+    // We already checked for zero itself and negative zero
+    // Any other zero is a leading zero which is not allowed
+    <<"i0", _:bytes>> | <<"i-0", _:bytes>> -> Error(InvalidFormat)
+    // Check for negative zero first
+    <<"i-", rest:bytes>> -> decode_int(rest, True)
+    <<"i", rest:bytes>> -> decode_int(rest, False)
+
+    // --- List Parsing ---
+    //
+    // Handle an empty list by just matching
+    <<"le", rest:bytes>> -> Ok(#(BList([]), rest))
+    <<"l", rest:bytes>> -> decode_list(rest)
+
+    // --- Dict Parsing ---
+    //
+    // Handle an empty dict by just matching
+    <<"de", rest:bytes>> -> Ok(#(BList([]), rest))
+    <<"d", rest:bytes>> -> decode_dict(rest)
     _ -> Error(InvalidFormat)
   }
 }
@@ -98,6 +127,35 @@ fn decode_string(
     <<":", value:bytes-size(len), rest:bytes>> -> Ok(#(BString(value), rest))
     _ -> Error(InvalidFormat)
   }
+}
+
+fn decode_int(
+  source: BitArray,
+  negative: Bool,
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
+  let #(num, rest) = source |> ascii_to_num(0)
+
+  case rest {
+    <<"e", rest:bytes>> -> {
+      case negative {
+        False -> Ok(#(BInt(num), rest))
+        True -> Ok(#(BInt(-num), rest))
+      }
+    }
+    _ -> Error(InvalidFormat)
+  }
+}
+
+fn decode_list(
+  source: BitArray,
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
+  Error(InvalidFormat)
+}
+
+fn decode_dict(
+  source: BitArray,
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
+  Error(InvalidFormat)
 }
 
 fn ascii_to_num(source: BitArray, significand: Int) -> #(Int, BitArray) {
@@ -115,35 +173,4 @@ fn ascii_to_num(source: BitArray, significand: Int) -> #(Int, BitArray) {
       ascii_to_num(rest, significand * 10 + num - 48)
     rest -> #(significand, rest)
   }
-}
-
-fn decode_int(
-  source: BitArray,
-  negative: Bool,
-) -> Result(#(BencodeValue, BitArray), DecodeError) {
-  // FIXME: handle negative zero, leading zero and empty strings
-
-  let #(num, rest) = source |> ascii_to_num(0)
-
-  case rest {
-    <<"e", rest:bytes>> -> {
-      case negative {
-        False -> Ok(#(BInt(num), rest))
-        True -> Ok(#(BInt(-num), rest))
-      }
-    }
-    _ -> Error(InvalidFormat)
-  }
-}
-
-fn decode_list(
-  source: BitArray,
-) -> Result(#(BencodeValue, BitArray), DecodeError) {
-  todo
-}
-
-fn decode_dict(
-  source: BitArray,
-) -> Result(#(BencodeValue, BitArray), DecodeError) {
-  todo
 }
