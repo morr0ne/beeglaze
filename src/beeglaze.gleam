@@ -36,11 +36,18 @@ pub type DecodeError {
   InvalidLength
 }
 
+pub type OrderedMap(k, v) =
+  ordered_map.Map(k, v)
+
+pub fn new_ordered_map() -> OrderedMap(BitArray, BencodeValue) {
+  ordered_map.new(bit_array.compare)
+}
+
 pub type BencodeValue {
   BString(BitArray)
   BInt(Int)
   BList(List(BencodeValue))
-  BDict(ordered_map.Map(BitArray, BencodeValue))
+  BDict(OrderedMap(BitArray, BencodeValue))
 }
 
 pub fn to_dynamic(value: BencodeValue) -> Dynamic {
@@ -112,7 +119,7 @@ fn decode_value(
     // --- Dict Parsing ---
     //
     // Handle an empty dict by just matching
-    <<"de", rest:bytes>> -> Ok(#(BList([]), rest))
+    <<"de", rest:bytes>> -> Ok(#(BDict(new_ordered_map()), rest))
     <<"d", rest:bytes>> -> decode_dict(rest)
     _ -> Error(InvalidFormat)
   }
