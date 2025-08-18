@@ -81,8 +81,8 @@ fn decode_value(
     | <<"7":utf8, _:bytes>>
     | <<"8":utf8, _:bytes>>
     | <<"9":utf8, _:bytes>> -> decode_string(source)
-    <<"i":utf8, rest:bytes>> -> decode_int(rest, False)
     <<"i-":utf8, rest:bytes>> -> decode_int(rest, True)
+    <<"i":utf8, rest:bytes>> -> decode_int(rest, False)
     <<"l":utf8, rest:bytes>> -> decode_list(rest)
     <<"d":utf8, rest:bytes>> -> decode_dict(rest)
     _ -> Error(InvalidFormat)
@@ -126,7 +126,12 @@ fn decode_int(
   let #(num, rest) = source |> ascii_to_num(0)
 
   case rest {
-    <<"e", rest:bytes>> -> Ok(#(BInt(num), rest))
+    <<"e", rest:bytes>> -> {
+      case negative {
+        False -> Ok(#(BInt(num), rest))
+        True -> Ok(#(BInt(-num), rest))
+      }
+    }
     _ -> Error(InvalidFormat)
   }
 }
