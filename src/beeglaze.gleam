@@ -43,18 +43,18 @@ pub type BencodeValue {
   BDict(ordered_map.Map(BitArray, BencodeValue))
 }
 
-pub fn value_to_dynamic(value: BencodeValue) -> Dynamic {
+pub fn to_dynamic(value: BencodeValue) -> Dynamic {
   case value {
     BDict(dict) ->
       dict
       |> ordered_map.to_list
       |> list.map(fn(entry) {
         let #(key, value) = entry
-        #(key |> dynamic.bit_array, value |> value_to_dynamic)
+        #(key |> dynamic.bit_array, value |> to_dynamic)
       })
       |> dynamic.properties
     BInt(int) -> int |> dynamic.int
-    BList(list) -> list |> list.map(value_to_dynamic) |> dynamic.array
+    BList(list) -> list |> list.map(to_dynamic) |> dynamic.array
     BString(array) -> array |> dynamic.bit_array
   }
 }
@@ -79,7 +79,7 @@ pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
   }
 }
 
-pub fn decode_string(source: BitArray) -> Result(BencodeValue, DecodeError) {
+fn decode_string(source: BitArray) -> Result(BencodeValue, DecodeError) {
   todo
   // use #(len, rest) <- result.try(
   //   source
@@ -100,7 +100,7 @@ pub fn decode_string(source: BitArray) -> Result(BencodeValue, DecodeError) {
   // ))
 }
 
-pub fn decode_int(
+fn decode_int(
   source: BitArray,
   negative: Bool,
 ) -> Result(BencodeValue, DecodeError) {
@@ -139,10 +139,10 @@ pub fn decode_int(
   // Ok(BInteger(num))
 }
 
-pub fn decode_list(source: BitArray) -> Result(BencodeValue, DecodeError) {
+fn decode_list(source: BitArray) -> Result(BencodeValue, DecodeError) {
   todo
 }
 
-pub fn decode_dict(source: BitArray) -> Result(BencodeValue, DecodeError) {
+fn decode_dict(source: BitArray) -> Result(BencodeValue, DecodeError) {
   todo
 }
