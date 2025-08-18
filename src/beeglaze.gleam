@@ -1,5 +1,7 @@
+import gleam/bit_array
 import gleam/bool
 import gleam/dict.{type Dict}
+import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/int
 import gleam/io
@@ -22,10 +24,11 @@ const empty_list = "le"
 const dict = "d3:cow3:moo4:spam4:eggse"
 
 pub fn main() {
+  todo
   // str |> decode_string |> echo
   // empty_str |> decode_string |> echo
-  int |> decode_int |> echo
-  neg_int |> decode_int |> echo
+  // int |> decode_int |> echo
+  // neg_int |> decode_int |> echo
 }
 
 pub type DecodeError {
@@ -35,16 +38,24 @@ pub type DecodeError {
 }
 
 pub type BencodeValue {
-  BString(String)
+  BString(BitArray)
   BInteger(Int)
   BList(List(BencodeValue))
   BDict(Dict(String, BencodeValue))
 }
 
-pub fn decode(source: String) -> Nil {
-  case string.first(source) {
-    Ok(char) -> Nil
-    Error(Nil) -> Nil
+pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
+  case source {
+    _ -> Error(InvalidFormat)
+  }
+}
+
+pub fn value_to_dynamic(value: BencodeValue) -> Dynamic {
+  case value {
+    BDict(dict) -> todo
+    BInteger(int) -> int |> dynamic.int
+    BList(list) -> list |> list.map(value_to_dynamic) |> dynamic.array
+    BString(array) -> array |> dynamic.bit_array
   }
 }
 
@@ -103,5 +114,7 @@ pub fn decode_string(source: String) -> Result(BencodeValue, DecodeError) {
   //   string.slice(from: rest, at_index: len, length: string.length(rest) - len),
   // ))
 
-  Ok(BString(string.slice(from: rest, at_index: 0, length: len)))
+  Ok(BString(
+    string.slice(from: rest, at_index: 0, length: len) |> bit_array.from_string,
+  ))
 }
