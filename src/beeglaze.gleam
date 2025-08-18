@@ -74,19 +74,21 @@ pub fn encode(value: BencodeValue) -> BitArray {
     }
     BInt(i) -> <<"i", int.to_string(i):utf8, "e">>
     BList(values) -> {
-      let encoded = values |> list.map(encode) |> bit_array.concat
+      let encoded =
+        values
+        |> list.fold(<<>>, fn(acc, value) {
+          acc |> bit_array.append(encode(value))
+        })
 
       <<"l", encoded:bits, "e">>
     }
     BDict(pairs) -> {
       let encoded =
         pairs
-        |> ordered_map.to_list
-        |> list.map(fn(pair) {
-          let #(key, value) = pair
-          <<encode(BString(key)):bits, encode(value):bits>>
+        |> ordered_map.fold(<<>>, fn(acc, key, value) {
+          acc
+          |> bit_array.append(<<encode(BString(key)):bits, encode(value):bits>>)
         })
-        |> bit_array.concat
 
       <<"d", encoded:bits, "e">>
     }
