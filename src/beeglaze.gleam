@@ -66,6 +66,33 @@ pub fn to_dynamic(value: BencodeValue) -> Dynamic {
   }
 }
 
+pub fn encode(value: BencodeValue) -> BitArray {
+  case value {
+    BString(str) -> {
+      let len = str |> bit_array.byte_size |> int.to_string
+      <<len:utf8, ":", str:bits>>
+    }
+    BInt(i) -> <<"i", int.to_string(i):utf8, "e">>
+    BList(values) -> {
+      let encoded = values |> list.map(encode) |> bit_array.concat
+
+      <<"l", encoded:bits, "e">>
+    }
+    BDict(pairs) -> {
+      let encoded =
+        pairs
+        |> ordered_map.to_list
+        |> list.map(fn(pair) {
+          let #(key, value) = pair
+          <<encode(BString(key)):bits, encode(value):bits>>
+        })
+        |> bit_array.concat
+
+      <<"d", encoded:bits, "e">>
+    }
+  }
+}
+
 pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
   case decode_value(source) {
     Ok(#(value, <<>>)) -> Ok(value)
