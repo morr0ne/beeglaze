@@ -27,7 +27,7 @@ const dict = <<"d3:cow3:moo4:spam4:eggse":utf8>>
 const ex = [str, empty_str, int, neg_int, list, empty_list, dict]
 
 pub fn main() {
-  ex |> list.each(fn(src) { src |> decode |> echo })
+  ex |> list.each(fn(src) { src |> decode_value |> echo })
 }
 
 pub type DecodeError {
@@ -59,7 +59,7 @@ pub fn to_dynamic(value: BencodeValue) -> Dynamic {
   }
 }
 
-pub fn decode(
+pub fn decode_value(
   source: BitArray,
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
   case source {
@@ -113,39 +113,14 @@ fn decode_int(
   source: BitArray,
   negative: Bool,
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
-  todo
-  // use <- bool.guard(
-  //   source |> string.starts_with("i") |> bool.negate,
-  //   Error(InvalidFormat),
-  // )
+  // FIXME: handle negative zero, leading zero and empty strings
 
-  // let source = source |> string.drop_start(1)
+  let #(num, rest) = source |> ascii_to_num(0)
 
-  // use #(num, _) <- result.try(
-  //   source
-  //   |> string.split_once("e")
-  //   |> result.map_error(fn(_) { InvalidFormat }),
-  // )
-
-  // // String can't be empty
-  // use <- bool.guard(num |> string.is_empty, Error(InvalidFormat))
-
-  // // Negative zero is not allowed
-  // use <- bool.guard(num |> string.starts_with("-0"), Error(InvalidFormat))
-
-  // // Leading zeros are not allowed
-  // use <- bool.guard(
-  //   num |> string.starts_with("0") && num |> string.length > 1,
-  //   Error(InvalidFormat),
-  // )
-
-  // use num <- result.try(
-  //   num
-  //   |> int.parse
-  //   |> result.map_error(fn(_) { InvalidFormat }),
-  // )
-
-  // Ok(BInteger(num))
+  case rest {
+    <<"e", rest:bytes>> -> Ok(#(BInt(num), rest))
+    _ -> Error(InvalidFormat)
+  }
 }
 
 fn decode_list(
