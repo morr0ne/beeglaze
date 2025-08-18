@@ -59,7 +59,9 @@ pub fn to_dynamic(value: BencodeValue) -> Dynamic {
   }
 }
 
-pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
+pub fn decode(
+  source: BitArray,
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
   case source {
     <<"0":utf8, _:bytes>>
     | <<"1":utf8, _:bytes>>
@@ -79,31 +81,55 @@ pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
   }
 }
 
-fn decode_string(source: BitArray) -> Result(BencodeValue, DecodeError) {
-  todo
-  // use #(len, rest) <- result.try(
-  //   source
-  //   |> string.split_once(":")
-  //   |> result.map_error(fn(_) { InvalidFormat }),
-  // )
+fn decode_string(
+  source: BitArray,
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
+  case source |> ascii_to_num(0) {
+    #(len, <<":", rest:bytes>>) -> {
+      use <- bool.guard(
+        rest |> bit_array.byte_size < len,
+        Error(UnexpectedEndOfInput),
+      )
 
-  // use len <- result.try(
-  //   len
-  //   |> int.parse
-  //   |> result.map_error(fn(_) { InvalidLength }),
-  // )
+      use value <- result.try(
+        rest
+        |> bit_array.slice(0, len)
+        |> result.replace_error(InvalidLength),
+      )
 
-  // use <- bool.guard(rest |> string.length < len, Error(UnexpectedEndOfInput))
+      use rest <- result.try(
+        rest
+        |> bit_array.slice(len, bit_array.byte_size(rest) - len)
+        |> result.replace_error(InvalidLength),
+      )
 
-  // Ok(BString(
-  //   string.slice(from: rest, at_index: 0, length: len) |> bit_array.from_string,
-  // ))
+      Ok(#(BString(value), rest))
+    }
+    _ -> Error(InvalidFormat)
+  }
+}
+
+fn ascii_to_num(source: BitArray, significand: Int) -> #(Int, BitArray) {
+  case source {
+    <<48 as num, rest:bytes>>
+    | <<49 as num, rest:bytes>>
+    | <<50 as num, rest:bytes>>
+    | <<51 as num, rest:bytes>>
+    | <<52 as num, rest:bytes>>
+    | <<53 as num, rest:bytes>>
+    | <<54 as num, rest:bytes>>
+    | <<55 as num, rest:bytes>>
+    | <<56 as num, rest:bytes>>
+    | <<57 as num, rest:bytes>> ->
+      ascii_to_num(rest, significand * 10 + num - 48)
+    rest -> #(significand, rest)
+  }
 }
 
 fn decode_int(
   source: BitArray,
   negative: Bool,
-) -> Result(BencodeValue, DecodeError) {
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
   todo
   // use <- bool.guard(
   //   source |> string.starts_with("i") |> bool.negate,
@@ -139,10 +165,14 @@ fn decode_int(
   // Ok(BInteger(num))
 }
 
-fn decode_list(source: BitArray) -> Result(BencodeValue, DecodeError) {
+fn decode_list(
+  source: BitArray,
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
   todo
 }
 
-fn decode_dict(source: BitArray) -> Result(BencodeValue, DecodeError) {
+fn decode_dict(
+  source: BitArray,
+) -> Result(#(BencodeValue, BitArray), DecodeError) {
   todo
 }
