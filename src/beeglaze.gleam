@@ -8,27 +8,26 @@ import gleam/io
 import gleam/list
 import gleam/result
 import gleam/string
+import gleamy/map as ordered_map
 
-const str = "4:spam"
+const str = <<"4:spam":utf8>>
 
-const empty_str = "0:"
+const empty_str = <<"0:":utf8>>
 
-const int = "i2423e"
+const int = <<"i2423e":utf8>>
 
-const neg_int = "i-412e"
+const neg_int = <<"i-412e":utf8>>
 
-const list = "l4:spam4:eggse"
+const list = <<"l4:spam4:eggse":utf8>>
 
-const empty_list = "le"
+const empty_list = <<"le":utf8>>
 
-const dict = "d3:cow3:moo4:spam4:eggse"
+const dict = <<"d3:cow3:moo4:spam4:eggse":utf8>>
+
+const ex = [str, empty_str, int, neg_int, list, empty_list, dict]
 
 pub fn main() {
-  todo
-  // str |> decode_string |> echo
-  // empty_str |> decode_string |> echo
-  // int |> decode_int |> echo
-  // neg_int |> decode_int |> echo
+  ex |> list.each(fn(src) { src |> decode |> echo })
 }
 
 pub type DecodeError {
@@ -39,82 +38,111 @@ pub type DecodeError {
 
 pub type BencodeValue {
   BString(BitArray)
-  BInteger(Int)
+  BInt(Int)
   BList(List(BencodeValue))
-  BDict(Dict(String, BencodeValue))
-}
-
-pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
-  case source {
-    _ -> Error(InvalidFormat)
-  }
+  BDict(ordered_map.Map(BitArray, BencodeValue))
 }
 
 pub fn value_to_dynamic(value: BencodeValue) -> Dynamic {
   case value {
-    BDict(dict) -> todo
-    BInteger(int) -> int |> dynamic.int
+    BDict(dict) ->
+      dict
+      |> ordered_map.to_list
+      |> list.map(fn(entry) {
+        let #(key, value) = entry
+        #(key |> dynamic.bit_array, value |> value_to_dynamic)
+      })
+      |> dynamic.properties
+    BInt(int) -> int |> dynamic.int
     BList(list) -> list |> list.map(value_to_dynamic) |> dynamic.array
     BString(array) -> array |> dynamic.bit_array
   }
 }
 
-pub fn decode_int(source: String) -> Result(BencodeValue, DecodeError) {
-  use <- bool.guard(
-    source |> string.starts_with("i") |> bool.negate,
-    Error(InvalidFormat),
-  )
-
-  let source = source |> string.drop_start(1)
-
-  use #(num, _) <- result.try(
-    source
-    |> string.split_once("e")
-    |> result.map_error(fn(_) { InvalidFormat }),
-  )
-
-  // String can't be empty
-  use <- bool.guard(num |> string.is_empty, Error(InvalidFormat))
-
-  // Negative zero is not allowed
-  use <- bool.guard(num |> string.starts_with("-0"), Error(InvalidFormat))
-
-  // Leading zeros are not allowed
-  use <- bool.guard(
-    num |> string.starts_with("0") && num |> string.length > 1,
-    Error(InvalidFormat),
-  )
-
-  use num <- result.try(
-    num
-    |> int.parse
-    |> result.map_error(fn(_) { InvalidFormat }),
-  )
-
-  Ok(BInteger(num))
+pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
+  case source {
+    <<"0":utf8, _:bytes>>
+    | <<"1":utf8, _:bytes>>
+    | <<"2":utf8, _:bytes>>
+    | <<"3":utf8, _:bytes>>
+    | <<"4":utf8, _:bytes>>
+    | <<"5":utf8, _:bytes>>
+    | <<"6":utf8, _:bytes>>
+    | <<"7":utf8, _:bytes>>
+    | <<"8":utf8, _:bytes>>
+    | <<"9":utf8, _:bytes>> -> decode_string(source)
+    <<"i":utf8, rest:bytes>> -> decode_int(rest, False)
+    <<"i-":utf8, rest:bytes>> -> decode_int(rest, True)
+    <<"l":utf8, rest:bytes>> -> decode_list(rest)
+    <<"d":utf8, rest:bytes>> -> decode_dict(rest)
+    _ -> Error(InvalidFormat)
+  }
 }
 
-pub fn decode_string(source: String) -> Result(BencodeValue, DecodeError) {
-  use #(len, rest) <- result.try(
-    source
-    |> string.split_once(":")
-    |> result.map_error(fn(_) { InvalidFormat }),
-  )
+pub fn decode_string(source: BitArray) -> Result(BencodeValue, DecodeError) {
+  todo
+  // use #(len, rest) <- result.try(
+  //   source
+  //   |> string.split_once(":")
+  //   |> result.map_error(fn(_) { InvalidFormat }),
+  // )
 
-  use len <- result.try(
-    len
-    |> int.parse
-    |> result.map_error(fn(_) { InvalidLength }),
-  )
+  // use len <- result.try(
+  //   len
+  //   |> int.parse
+  //   |> result.map_error(fn(_) { InvalidLength }),
+  // )
 
-  use <- bool.guard(rest |> string.length < len, Error(UnexpectedEndOfInput))
+  // use <- bool.guard(rest |> string.length < len, Error(UnexpectedEndOfInput))
 
-  // Ok(#(
-  //   string.slice(from: rest, at_index: 0, length: len),
-  //   string.slice(from: rest, at_index: len, length: string.length(rest) - len),
+  // Ok(BString(
+  //   string.slice(from: rest, at_index: 0, length: len) |> bit_array.from_string,
   // ))
+}
 
-  Ok(BString(
-    string.slice(from: rest, at_index: 0, length: len) |> bit_array.from_string,
-  ))
+pub fn decode_int(
+  source: BitArray,
+  negative: Bool,
+) -> Result(BencodeValue, DecodeError) {
+  todo
+  // use <- bool.guard(
+  //   source |> string.starts_with("i") |> bool.negate,
+  //   Error(InvalidFormat),
+  // )
+
+  // let source = source |> string.drop_start(1)
+
+  // use #(num, _) <- result.try(
+  //   source
+  //   |> string.split_once("e")
+  //   |> result.map_error(fn(_) { InvalidFormat }),
+  // )
+
+  // // String can't be empty
+  // use <- bool.guard(num |> string.is_empty, Error(InvalidFormat))
+
+  // // Negative zero is not allowed
+  // use <- bool.guard(num |> string.starts_with("-0"), Error(InvalidFormat))
+
+  // // Leading zeros are not allowed
+  // use <- bool.guard(
+  //   num |> string.starts_with("0") && num |> string.length > 1,
+  //   Error(InvalidFormat),
+  // )
+
+  // use num <- result.try(
+  //   num
+  //   |> int.parse
+  //   |> result.map_error(fn(_) { InvalidFormat }),
+  // )
+
+  // Ok(BInteger(num))
+}
+
+pub fn decode_list(source: BitArray) -> Result(BencodeValue, DecodeError) {
+  todo
+}
+
+pub fn decode_dict(source: BitArray) -> Result(BencodeValue, DecodeError) {
+  todo
 }
