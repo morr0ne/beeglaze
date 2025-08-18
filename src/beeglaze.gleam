@@ -106,7 +106,7 @@ fn decode_value(
     // We already checked for zero itself and negative zero
     // Any other zero is a leading zero which is not allowed
     <<"i0", _:bytes>> | <<"i-0", _:bytes>> -> Error(InvalidFormat)
-    // Check for negative zero first
+    // Check for negative sign first
     <<"i-", rest:bytes>> -> decode_int(rest, True)
     <<"i", rest:bytes>> -> decode_int(rest, False)
 
