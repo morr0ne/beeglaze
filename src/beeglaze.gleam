@@ -27,7 +27,7 @@ const dict = <<"d3:cow3:moo4:spam4:eggse":utf8>>
 const ex = [str, empty_str, int, neg_int, list, empty_list, dict]
 
 pub fn main() {
-  ex |> list.each(fn(src) { src |> decode_value |> echo })
+  ex |> list.each(fn(src) { src |> decode |> echo })
 }
 
 pub type DecodeError {
@@ -59,7 +59,15 @@ pub fn to_dynamic(value: BencodeValue) -> Dynamic {
   }
 }
 
-pub fn decode_value(
+pub fn decode(source: BitArray) -> Result(BencodeValue, DecodeError) {
+  case decode_value(source) {
+    Ok(#(value, <<>>)) -> Ok(value)
+    Ok(#(_, _)) -> Error(InvalidLength)
+    Error(error) -> Error(error)
+  }
+}
+
+fn decode_value(
   source: BitArray,
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
   case source {
