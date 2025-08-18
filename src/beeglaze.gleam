@@ -149,7 +149,7 @@ fn decode_value(
     //
     // Handle an empty dict by just matching
     <<"de", rest:bytes>> -> Ok(#(BDict(new_ordered_map()), rest))
-    <<"d", rest:bytes>> -> decode_dict(rest)
+    <<"d", rest:bytes>> -> decode_dict(rest, new_ordered_map())
     _ -> Error(InvalidFormat)
   }
 }
@@ -198,8 +198,24 @@ fn decode_list(
 
 fn decode_dict(
   source: BitArray,
+  acc: OrderedMap(BitArray, BencodeValue),
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
-  Error(InvalidFormat)
+  case source {
+    <<"e", rest:bytes>> -> Ok(#(BDict(acc), rest))
+    _ -> {
+      case decode_value(source) {
+        Ok(#(BString(str), rest)) -> {
+          case decode_value(rest) {
+            Ok(#(value, rest)) ->
+              decode_dict(rest, acc |> ordered_map.insert(str, value))
+            Error(error) -> Error(error)
+          }
+        }
+        Ok(_) -> Error(InvalidFormat)
+        Error(error) -> Error(error)
+      }
+    }
+  }
 }
 
 fn ascii_to_num(source: BitArray, significand: Int) -> #(Int, BitArray) {
