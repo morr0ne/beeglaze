@@ -84,27 +84,10 @@ pub fn decode(
 fn decode_string(
   source: BitArray,
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
-  case source |> ascii_to_num(0) {
-    #(len, <<":", rest:bytes>>) -> {
-      use <- bool.guard(
-        rest |> bit_array.byte_size < len,
-        Error(UnexpectedEndOfInput),
-      )
+  let #(len, rest) = source |> ascii_to_num(0)
 
-      use value <- result.try(
-        rest
-        |> bit_array.slice(0, len)
-        |> result.replace_error(InvalidLength),
-      )
-
-      use rest <- result.try(
-        rest
-        |> bit_array.slice(len, bit_array.byte_size(rest) - len)
-        |> result.replace_error(InvalidLength),
-      )
-
-      Ok(#(BString(value), rest))
-    }
+  case rest {
+    <<":", value:bytes-size(len), rest:bytes>> -> Ok(#(BString(value), rest))
     _ -> Error(InvalidFormat)
   }
 }
