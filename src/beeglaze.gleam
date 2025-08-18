@@ -143,7 +143,7 @@ fn decode_value(
     //
     // Handle an empty list by just matching
     <<"le", rest:bytes>> -> Ok(#(BList([]), rest))
-    <<"l", rest:bytes>> -> decode_list(rest)
+    <<"l", rest:bytes>> -> decode_list(rest, [])
 
     // --- Dict Parsing ---
     //
@@ -184,8 +184,16 @@ fn decode_int(
 
 fn decode_list(
   source: BitArray,
+  acc: List(BencodeValue),
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
-  Error(InvalidFormat)
+  case source {
+    <<"e", rest:bytes>> -> Ok(#(BList(acc |> list.reverse), rest))
+    _ ->
+      case decode_value(source) {
+        Error(error) -> Error(error)
+        Ok(#(value, rest)) -> decode_list(rest, [value, ..acc])
+      }
+  }
 }
 
 fn decode_dict(
