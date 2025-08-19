@@ -2,6 +2,7 @@ import bencode.{
   type BencodeDict, type BencodeValue, type DecodeError, BDict, BInt, BList,
   BString,
 }
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleamy/map as ordered_map
 import simplifile
@@ -24,8 +25,8 @@ pub fn main() {
 fn decode_meta_info(value: BencodeValue) -> Result(MetaInfo, DecodeError) {
   case value {
     BDict(pairs) -> {
-      use #(announce, pairs) <- get_string(<<"announce">>, pairs)
-      use #(info, _pairs) <- get_dict(<<"info">>, pairs)
+      use #(announce, pairs) <- field(<<"announce">>, pairs, get_string)
+      use #(info, _pairs) <- field(<<"info">>, pairs, get_dict)
       use info <- result.try(decode_info(info))
 
       Ok(MetaInfo(announce:, info:))
@@ -35,72 +36,53 @@ fn decode_meta_info(value: BencodeValue) -> Result(MetaInfo, DecodeError) {
 }
 
 fn decode_info(pairs: BencodeDict) -> Result(Info, DecodeError) {
-  use #(name, pairs) <- get_string(<<"name">>, pairs)
-  use #(piece_length, pairs) <- get_int(<<"piece length">>, pairs)
-  use #(pieces, _pairs) <- get_string(<<"pieces">>, pairs)
+  use #(name, pairs) <- field(<<"name">>, pairs, get_string)
+  use #(piece_length, pairs) <- field(<<"piece length">>, pairs, get_int)
+  use #(pieces, _pairs) <- field(<<"pieces">>, pairs, get_string)
 
   Ok(Info(name:, piece_length:, pieces:))
 }
 
-pub fn get_string(
-  name: BitArray,
-  pairs: BencodeDict,
-  next: fn(#(BitArray, BencodeDict)) -> Result(a, DecodeError),
-) -> Result(a, DecodeError) {
-  use #(value, pairs) <- field(name, pairs)
-
+fn get_string(value: BencodeValue) -> Option(BitArray) {
   case value {
-    BString(str) -> next(#(str, pairs))
-    _ -> Error(bencode.InvalidType)
+    BString(s) -> Some(s)
+    _ -> None
   }
 }
 
-pub fn get_int(
-  name: BitArray,
-  pairs: BencodeDict,
-  next: fn(#(Int, BencodeDict)) -> Result(a, DecodeError),
-) -> Result(a, DecodeError) {
-  use #(value, pairs) <- field(name, pairs)
-
+fn get_int(value: BencodeValue) -> Option(Int) {
   case value {
-    BInt(int) -> next(#(int, pairs))
-    _ -> Error(bencode.InvalidType)
+    BInt(i) -> Some(i)
+    _ -> None
   }
 }
 
-pub fn get_list(
-  name: BitArray,
-  pairs: BencodeDict,
-  next: fn(#(List(BencodeValue), BencodeDict)) -> Result(a, DecodeError),
-) -> Result(a, DecodeError) {
-  use #(value, pairs) <- field(name, pairs)
-
+fn get_list(value: BencodeValue) -> Option(List(BencodeValue)) {
   case value {
-    BList(list) -> next(#(list, pairs))
-    _ -> Error(bencode.InvalidType)
+    BList(l) -> Some(l)
+    _ -> None
   }
 }
 
-pub fn get_dict(
-  name: BitArray,
-  pairs: BencodeDict,
-  next: fn(#(BencodeDict, BencodeDict)) -> Result(a, DecodeError),
-) -> Result(a, DecodeError) {
-  use #(value, pairs) <- field(name, pairs)
-
+fn get_dict(value: BencodeValue) -> Option(BencodeDict) {
   case value {
-    BDict(dict) -> next(#(dict, pairs))
-    _ -> Error(bencode.InvalidType)
+    BDict(d) -> Some(d)
+    _ -> None
   }
 }
 
 fn field(
   name: BitArray,
   pairs: BencodeDict,
-  next: fn(#(BencodeValue, BencodeDict)) -> Result(a, DecodeError),
+  getter: fn(BencodeValue) -> Option(v),
+  next: fn(#(v, BencodeDict)) -> Result(a, DecodeError),
 ) -> Result(a, DecodeError) {
   case pairs |> ordered_map.get(name) {
     Ok(value) -> {
+      use value <- result.try(
+        getter(value) |> option.to_result(bencode.MissingField),
+      )
+
       next(#(value, pairs |> ordered_map.delete(name)))
     }
     Error(_) -> Error(bencode.MissingField)
