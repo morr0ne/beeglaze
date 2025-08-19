@@ -7,12 +7,14 @@ pub type DecodeError {
   UnexpectedEndOfInput
   InvalidFormat
   InvalidLength
+  MissingField
+  InvalidType
 }
 
-pub type OrderedMap(k, v) =
-  ordered_map.Map(k, v)
+pub type BencodeDict =
+  ordered_map.Map(BitArray, BencodeValue)
 
-pub fn new_ordered_map() -> OrderedMap(BitArray, BencodeValue) {
+pub fn new_ordered_map() -> BencodeDict {
   ordered_map.new(bit_array.compare)
 }
 
@@ -20,7 +22,7 @@ pub type BencodeValue {
   BString(BitArray)
   BInt(Int)
   BList(List(BencodeValue))
-  BDict(OrderedMap(BitArray, BencodeValue))
+  BDict(BencodeDict)
 }
 
 pub fn encode(value: BencodeValue) -> BitArray {
@@ -155,7 +157,7 @@ fn decode_list(
 
 fn decode_dict(
   source: BitArray,
-  acc: OrderedMap(BitArray, BencodeValue),
+  acc: BencodeDict,
 ) -> Result(#(BencodeValue, BitArray), DecodeError) {
   case source {
     <<"e", rest:bytes>> -> Ok(#(BDict(acc), rest))
