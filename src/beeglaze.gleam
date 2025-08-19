@@ -2,6 +2,8 @@ import bencode.{
   type BencodeDict, type BencodeValue, type DecodeError, BDict, BInt, BList,
   BString,
 }
+import gleam/bool
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleamy/map as ordered_map
@@ -42,9 +44,23 @@ fn decode_meta_info(value: BencodeValue) -> Result(MetaInfo, DecodeError) {
 fn decode_info(pairs: BencodeDict) -> Result(Info, DecodeError) {
   use #(name, pairs) <- field(<<"name">>, pairs, get_string)
   use #(piece_length, pairs) <- field(<<"piece length">>, pairs, get_int)
-  use #(pieces, _pairs) <- field(<<"pieces">>, pairs, get_string)
+  use #(pieces, pairs) <- field(<<"pieces">>, pairs, get_string)
+
+  use <- deny_unknown_fields(pairs)
 
   Ok(Info(name:, piece_length:, pieces:))
+}
+
+fn deny_unknown_fields(
+  pairs: BencodeDict,
+  other: fn() -> Result(a, DecodeError),
+) -> Result(a, DecodeError) {
+  let fields = pairs |> ordered_map.to_list |> list.map(fn(pair) { pair.0 })
+
+  case fields |> list.is_empty {
+    False -> Error(bencode.UnknownFields(fields))
+    True -> other()
+  }
 }
 
 fn get_string(value: BencodeValue) -> Option(BitArray) {

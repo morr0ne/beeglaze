@@ -9,6 +9,7 @@ pub type DecodeError {
   InvalidLength
   MissingField
   InvalidType
+  UnknownFields(List(BitArray))
 }
 
 pub type BencodeDict =
