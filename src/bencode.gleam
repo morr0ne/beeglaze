@@ -1,5 +1,4 @@
 import gleam/bit_array
-import gleam/dynamic.{type Dynamic}
 import gleam/int
 import gleam/list
 import gleamy/map as ordered_map
@@ -22,22 +21,6 @@ pub type BencodeValue {
   BInt(Int)
   BList(List(BencodeValue))
   BDict(OrderedMap(BitArray, BencodeValue))
-}
-
-pub fn to_dynamic(value: BencodeValue) -> Dynamic {
-  case value {
-    BDict(dict) ->
-      dict
-      |> ordered_map.to_list
-      |> list.map(fn(entry) {
-        let #(key, value) = entry
-        #(key |> dynamic.bit_array, value |> to_dynamic)
-      })
-      |> dynamic.properties
-    BInt(int) -> int |> dynamic.int
-    BList(list) -> list |> list.map(to_dynamic) |> dynamic.array
-    BString(array) -> array |> dynamic.bit_array
-  }
 }
 
 pub fn encode(value: BencodeValue) -> BitArray {
