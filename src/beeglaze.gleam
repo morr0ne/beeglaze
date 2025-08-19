@@ -8,7 +8,7 @@ import gleamy/map as ordered_map
 import simplifile
 
 pub type MetaInfo {
-  MetaInfo(announce: BitArray, info: Info)
+  MetaInfo(announce: Option(BitArray), info: Info)
 }
 
 pub type Info {
@@ -25,7 +25,11 @@ pub fn main() {
 fn decode_meta_info(value: BencodeValue) -> Result(MetaInfo, DecodeError) {
   case value {
     BDict(pairs) -> {
-      use #(announce, pairs) <- field(<<"announce">>, pairs, get_string)
+      use #(announce, pairs) <- optional_field(
+        <<"announce">>,
+        pairs,
+        get_string,
+      )
       use #(info, _pairs) <- field(<<"info">>, pairs, get_dict)
       use info <- result.try(decode_info(info))
 
@@ -86,5 +90,19 @@ fn field(
       next(#(value, pairs |> ordered_map.delete(name)))
     }
     Error(_) -> Error(bencode.MissingField)
+  }
+}
+
+fn optional_field(
+  name: BitArray,
+  pairs: BencodeDict,
+  getter: fn(BencodeValue) -> Option(v),
+  next: fn(#(Option(v), BencodeDict)) -> Result(a, DecodeError),
+) -> Result(a, DecodeError) {
+  case pairs |> ordered_map.get(name) {
+    Ok(value) -> {
+      next(#(getter(value), pairs |> ordered_map.delete(name)))
+    }
+    Error(_) -> next(#(None, pairs))
   }
 }
