@@ -9,25 +9,36 @@ import gleam/list
 import gleam/result
 import gleam/string
 import gleamy/map as ordered_map
+import simplifile
 
-const str = <<"4:spam":utf8>>
+pub type MetaInfo {
+  MetaInfo(announce: BitArray, info: Info)
+}
 
-const empty_str = <<"0:":utf8>>
-
-const int = <<"i2423e":utf8>>
-
-const neg_int = <<"i-412e":utf8>>
-
-const list = <<"l4:spam4:eggse":utf8>>
-
-const empty_list = <<"le":utf8>>
-
-const dict = <<"d3:cow3:moo4:spam4:eggse":utf8>>
-
-const ex = [str, empty_str, int, neg_int, list, empty_list, dict]
+pub type Info {
+  Info(name: BitArray, piece_length: Int, pieces: BitArray)
+}
 
 pub fn main() {
-  ex |> list.each(fn(src) { src |> decode |> echo })
+  let info_decoder = {
+    use name <- decode.field("name", decode.bit_array)
+    use piece_length <- decode.field("piece length", decode.int)
+    use pieces <- decode.field("pieces", decode.bit_array)
+
+    decode.success(Info(name:, piece_length:, pieces:))
+  }
+
+  let meta_info_decoder = {
+    use announce <- decode.field("announce", decode.bit_array)
+    use info <- decode.field("info", info_decoder)
+
+    decode.success(MetaInfo(announce, info:))
+  }
+
+  let assert Ok(bits) = simplifile.read_bits("temp/bunny.torrent")
+  let assert Ok(value) = bits |> decode
+
+  value |> to_dynamic |> decode.run(meta_info_decoder) |> echo
 }
 
 pub type DecodeError {
