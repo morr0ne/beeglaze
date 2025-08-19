@@ -2,7 +2,6 @@ import bencode.{
   type BencodeDict, type BencodeValue, type DecodeError, BDict, BInt, BList,
   BString,
 }
-import gleam/bool
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -14,11 +13,16 @@ pub type MetaInfo {
 }
 
 pub type Info {
-  Info(name: BitArray, piece_length: Int, pieces: BitArray)
+  Info(name: BitArray, piece_length: Int, pieces: BitArray, files: Files)
+}
+
+pub type Files {
+  Single(length: Int)
+  // TODO: multifile torrent
 }
 
 pub fn main() {
-  let assert Ok(bits) = simplifile.read_bits("temp/bunny.torrent")
+  let assert Ok(bits) = simplifile.read_bits("temp/arch.torrent")
   let assert Ok(value) = bits |> bencode.decode
 
   value |> decode_meta_info |> echo
@@ -45,10 +49,11 @@ fn decode_info(pairs: BencodeDict) -> Result(Info, DecodeError) {
   use #(name, pairs) <- field(<<"name">>, pairs, get_string)
   use #(piece_length, pairs) <- field(<<"piece length">>, pairs, get_int)
   use #(pieces, pairs) <- field(<<"pieces">>, pairs, get_string)
+  use #(length, pairs) <- field(<<"length">>, pairs, get_int)
 
   use <- deny_unknown_fields(pairs)
 
-  Ok(Info(name:, piece_length:, pieces:))
+  Ok(Info(name:, piece_length:, pieces:, files: Single(length:)))
 }
 
 fn deny_unknown_fields(
