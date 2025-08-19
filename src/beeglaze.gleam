@@ -2,9 +2,12 @@ import bencode.{
   type BencodeDict, type BencodeValue, type DecodeError, BDict, BInt, BList,
   BString,
 }
+import gleam/bit_array
+import gleam/crypto.{Sha1, digest, hash_chunk, new_hasher}
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
+import gleam/string
 import gleamy/map as ordered_map
 import simplifile
 
@@ -25,7 +28,25 @@ pub fn main() {
   let assert Ok(bits) = simplifile.read_bits("temp/arch.torrent")
   let assert Ok(value) = bits |> bencode.decode
 
-  value |> decode_meta_info |> echo
+  let assert Ok(meta_info) = value |> decode_meta_info
+
+  let hash =
+    new_hasher(Sha1)
+    |> hash_chunk(meta_info.info |> info_to_value |> bencode.encode)
+    |> digest
+    |> bit_array.base16_encode
+    |> string.lowercase
+
+  echo hash
+}
+
+fn info_to_value(info: Info) -> BencodeValue {
+  bencode.new_ordered_map()
+  |> ordered_map.insert(<<"name">>, BString(info.name))
+  |> ordered_map.insert(<<"piece length">>, BInt(info.piece_length))
+  |> ordered_map.insert(<<"pieces">>, BString(info.pieces))
+  |> ordered_map.insert(<<"length">>, BInt(info.files.length))
+  |> BDict
 }
 
 fn decode_meta_info(value: BencodeValue) -> Result(MetaInfo, DecodeError) {
