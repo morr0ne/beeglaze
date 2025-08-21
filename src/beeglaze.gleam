@@ -25,7 +25,7 @@ pub type Files {
 }
 
 pub fn main() {
-  let assert Ok(bits) = simplifile.read_bits("temp/arch.torrent")
+  let assert Ok(bits) = simplifile.read_bits("temp/debian.torrent")
   let assert Ok(value) = bits |> bencode.decode
 
   let assert Ok(meta_info) = value |> decode_meta_info
@@ -76,32 +76,18 @@ fn decode_info(pairs: BencodeDict) -> Result(Info, DecodeError) {
   use #(piece_length, pairs) <- field(<<"piece length">>, pairs, get_int)
   use #(pieces, pairs) <- field(<<"pieces">>, pairs, get_string)
   use #(length, pairs) <- optional_field(<<"length">>, pairs, get_int)
+  use #(files, pairs) <- optional_field(<<"files">>, pairs, get_list)
 
-  case length {
-    Some(length) -> {
-      use <- deny_unknown_fields(pairs)
+  use files <- result.try(case length, files {
+    Some(_), Some(_) -> Error(bencode.InvalidFormat)
+    None, None -> Error(bencode.InvalidFormat)
+    Some(length), None -> Ok(SingleFile(length:))
+    None, Some(files) -> Ok(MultipleFiles(files: BList(files)))
+  })
 
-      Ok(Info(name:, piece_length:, pieces:, files: SingleFile(length:)))
-    }
+  use <- deny_unknown_fields(pairs)
 
-    None -> {
-      use #(files, pairs) <- optional_field(<<"files">>, pairs, get_list)
-
-      case files {
-        None -> Error(bencode.MissingField)
-        Some(files) -> {
-          use <- deny_unknown_fields(pairs)
-
-          Ok(Info(
-            name:,
-            piece_length:,
-            pieces:,
-            files: MultipleFiles(files: BList(files)),
-          ))
-        }
-      }
-    }
-  }
+  Ok(Info(name:, piece_length:, pieces:, files:))
 }
 
 fn deny_unknown_fields(
