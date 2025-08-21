@@ -20,8 +20,8 @@ pub type Info {
 }
 
 pub type Files {
-  Single(length: Int)
-  // TODO: multifile torrent
+  SingleFile(length: Int)
+  MultipleFiles(files: BencodeValue)
 }
 
 pub fn main() {
@@ -41,11 +41,16 @@ pub fn main() {
 }
 
 fn info_to_value(info: Info) -> BencodeValue {
-  bencode.new_ordered_map()
-  |> ordered_map.insert(<<"name">>, BString(info.name))
-  |> ordered_map.insert(<<"piece length">>, BInt(info.piece_length))
-  |> ordered_map.insert(<<"pieces">>, BString(info.pieces))
-  |> ordered_map.insert(<<"length">>, BInt(info.files.length))
+  let map =
+    bencode.new_ordered_map()
+    |> ordered_map.insert(<<"name">>, BString(info.name))
+    |> ordered_map.insert(<<"piece length">>, BInt(info.piece_length))
+    |> ordered_map.insert(<<"pieces">>, BString(info.pieces))
+
+  case info.files {
+    MultipleFiles(files:) -> map |> ordered_map.insert(<<"files">>, files)
+    SingleFile(length:) -> map |> ordered_map.insert(<<"length">>, BInt(length))
+  }
   |> BDict
 }
 
@@ -70,11 +75,33 @@ fn decode_info(pairs: BencodeDict) -> Result(Info, DecodeError) {
   use #(name, pairs) <- field(<<"name">>, pairs, get_string)
   use #(piece_length, pairs) <- field(<<"piece length">>, pairs, get_int)
   use #(pieces, pairs) <- field(<<"pieces">>, pairs, get_string)
-  use #(length, pairs) <- field(<<"length">>, pairs, get_int)
+  use #(length, pairs) <- optional_field(<<"length">>, pairs, get_int)
 
-  use <- deny_unknown_fields(pairs)
+  case length {
+    Some(length) -> {
+      use <- deny_unknown_fields(pairs)
 
-  Ok(Info(name:, piece_length:, pieces:, files: Single(length:)))
+      Ok(Info(name:, piece_length:, pieces:, files: SingleFile(length:)))
+    }
+
+    None -> {
+      use #(files, pairs) <- optional_field(<<"files">>, pairs, get_list)
+
+      case files {
+        None -> Error(bencode.MissingField)
+        Some(files) -> {
+          use <- deny_unknown_fields(pairs)
+
+          Ok(Info(
+            name:,
+            piece_length:,
+            pieces:,
+            files: MultipleFiles(files: BList(files)),
+          ))
+        }
+      }
+    }
+  }
 }
 
 fn deny_unknown_fields(
