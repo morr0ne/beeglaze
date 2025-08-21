@@ -8,7 +8,7 @@ pub type DecodeError {
   InvalidFormat
   InvalidLength
   MissingField
-  InvalidType
+  UnexpectedType(String)
   UnknownFields(List(BitArray))
 }
 
@@ -24,6 +24,15 @@ pub type BencodeValue {
   BInt(Int)
   BList(List(BencodeValue))
   BDict(BencodeDict)
+}
+
+pub fn value_to_type(value: BencodeValue) -> String {
+  case value {
+    BDict(_) -> "Dict"
+    BInt(_) -> "Int"
+    BList(_) -> "List"
+    BString(_) -> "String"
+  }
 }
 
 pub fn encode(value: BencodeValue) -> BitArray {

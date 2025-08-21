@@ -116,45 +116,43 @@ fn deny_unknown_fields(
   }
 }
 
-fn get_string(value: BencodeValue) -> Option(BitArray) {
+fn get_string(value: BencodeValue) -> Result(BitArray, DecodeError) {
   case value {
-    BString(s) -> Some(s)
-    _ -> None
+    BString(s) -> Ok(s)
+    _ -> Error(value |> bencode.value_to_type |> bencode.UnexpectedType)
   }
 }
 
-fn get_int(value: BencodeValue) -> Option(Int) {
+fn get_int(value: BencodeValue) -> Result(Int, DecodeError) {
   case value {
-    BInt(i) -> Some(i)
-    _ -> None
+    BInt(i) -> Ok(i)
+    _ -> Error(value |> bencode.value_to_type |> bencode.UnexpectedType)
   }
 }
 
-fn get_list(value: BencodeValue) -> Option(List(BencodeValue)) {
+fn get_list(value: BencodeValue) -> Result(List(BencodeValue), DecodeError) {
   case value {
-    BList(l) -> Some(l)
-    _ -> None
+    BList(l) -> Ok(l)
+    _ -> Error(value |> bencode.value_to_type |> bencode.UnexpectedType)
   }
 }
 
-fn get_dict(value: BencodeValue) -> Option(BencodeDict) {
+fn get_dict(value: BencodeValue) -> Result(BencodeDict, DecodeError) {
   case value {
-    BDict(d) -> Some(d)
-    _ -> None
+    BDict(d) -> Ok(d)
+    _ -> Error(value |> bencode.value_to_type |> bencode.UnexpectedType)
   }
 }
 
 fn field(
   name: BitArray,
   pairs: BencodeDict,
-  getter: fn(BencodeValue) -> Option(v),
+  getter: fn(BencodeValue) -> Result(v, DecodeError),
   next: fn(#(v, BencodeDict)) -> Result(a, DecodeError),
 ) -> Result(a, DecodeError) {
   case pairs |> ordered_map.get(name) {
     Ok(value) -> {
-      use value <- result.try(
-        getter(value) |> option.to_result(bencode.MissingField),
-      )
+      use value <- result.try(getter(value))
 
       next(#(value, pairs |> ordered_map.delete(name)))
     }
@@ -165,12 +163,15 @@ fn field(
 fn optional_field(
   name: BitArray,
   pairs: BencodeDict,
-  getter: fn(BencodeValue) -> Option(v),
+  getter: fn(BencodeValue) -> Result(v, DecodeError),
   next: fn(#(Option(v), BencodeDict)) -> Result(a, DecodeError),
 ) -> Result(a, DecodeError) {
   case pairs |> ordered_map.get(name) {
     Ok(value) -> {
-      next(#(getter(value), pairs |> ordered_map.delete(name)))
+      next(#(
+        getter(value) |> option.from_result,
+        pairs |> ordered_map.delete(name),
+      ))
     }
     Error(_) -> next(#(None, pairs))
   }
